@@ -1,0 +1,290 @@
+<!DOCTYPE html> 
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>おみくじ</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #fef6e4;
+      font-family: 'Arial', sans-serif;
+      overflow: hidden;
+    }
+
+    .container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+
+    .torii {
+      position: relative;
+      max-width: 80vw;
+      max-height: 70vh;
+    }
+
+    #drawButton {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 1em 2em;
+      font-size: 2rem;
+      background-color: #ED9121;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      z-index: 5;
+      white-space: nowrap;
+      min-width: 200px;
+      transition: background-color 0.3s;
+    }
+
+    #drawButton:hover {
+      background-color: #D17E1D;
+    }
+
+    .result {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      background-color: white;
+      padding: 1em;
+      border: 2px solid #333;
+      border-radius: 10px;
+      text-align: left;
+      white-space: pre-line;
+      width: 80vw;
+      max-width: 500px;
+      z-index: 4;
+      transition: transform 0.5s ease-out;
+    }
+
+    .result.open {
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    .sakura {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 6;
+    }
+
+    .petal {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background-color: pink;
+      border-radius: 50%;
+      opacity: 0.8;
+      animation: fall linear infinite;
+    }
+
+    @keyframes fall {
+      0% { transform: translateY(-10%); opacity: 1; }
+      100% { transform: translateY(110vh); opacity: 0; }
+    }
+
+    .label {
+      font-weight: bold;
+      font-size: 1.5rem;
+      text-align: center;
+      margin-bottom: 1em;
+    }
+
+    .大吉 { color: red; text-align: center; }
+    .中吉 { color: orange; text-align: center; }
+    .小吉 { color: goldenrod; text-align: center; }
+    .吉   { color: green; text-align: center; }
+    .末吉 { color: blue; text-align: center; }
+    .凶   { color: purple; text-align: center; }
+    .大凶 { color: black; text-align: center; }
+
+    .countdown {
+      font-size: 4rem;
+      font-weight: bold;
+      position: absolute;
+      top: 20%;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 7;
+    }
+
+    /* ハンバーガーメニュー */
+    .menu-toggle {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 10;
+      cursor: pointer;
+      width: 40px;
+      height: 30px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .menu-toggle span {
+      display: block;
+      height: 5px;
+      background: #000;
+      border-radius: 2px;
+    }
+
+    .menu {
+      position: fixed;
+      top: 60px;
+      right: 20px;
+      background-color: white;
+      border: 1px solid #aaa;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      display: none;
+      z-index: 9;
+    }
+
+    .menu a {
+      display: block;
+      padding: 10px 20px;
+      text-decoration: none;
+      color: #333;
+      border-bottom: 1px solid #eee;
+    }
+
+    .menu a:last-child {
+      border-bottom: none;
+    }
+
+    .menu a:hover {
+      background-color: #f0f0f0;
+    }
+  </style>
+</head>
+<body>
+  <div class="menu-toggle" id="menuToggle" aria-label="メニューを開く">
+    <span></span>
+    <span></span>
+    <span></span>
+  </div>
+  <div class="menu" id="menu">
+    <a href="https://www.youtube.com/watch?v=KjWYLJ1x0j0" target="_blank">販売中のTシャツ一覧</a>
+    <a href="https://www.youtube.com/watch?v=3fzhsrb0GVQ" target="_blank">利用規約</a>
+    <a href="https://www.youtube.com/shorts/K388iSwJt2Q" target="_blank">規約</a>
+  </div>
+
+  <div class="container">
+    <img src="鳥居.png" class="torii" id="torii" alt="鳥居の画像">
+    <button id="drawButton" aria-label="おみくじを引く">おみくじを引く</button>
+    <div class="result" id="resultBox"></div>
+    <div class="sakura" id="sakuraContainer"></div>
+    <div class="countdown" id="countdown"></div>
+  </div>
+
+  <!-- Audio files -->
+  <audio id="soundEffect" src="スイッチを押す.mp3"></audio>
+  <audio id="puff" src="パフ.mp3"></audio>
+  <audio id="yay" src="男衆「イエーイ！」.mp3"></audio>
+  <audio id="yahoo" src="男衆「イヤッホー！」.mp3"></audio>
+  <audio id="ou" src="男衆「オウ！」.mp3"></audio>
+  <audio id="none" src="男衆「、！」.mp3"></audio>
+
+  <script>
+    const drawButton = document.getElementById("drawButton");
+    const resultBox = document.getElementById("resultBox");
+    const sakuraContainer = document.getElementById("sakuraContainer");
+    const countdown = document.getElementById("countdown");
+
+    const soundEffect = document.getElementById("soundEffect");
+    const puff = document.getElementById("puff");
+    const yay = document.getElementById("yay");
+    const yahoo = document.getElementById("yahoo");
+    const ou = document.getElementById("ou");
+    const none = document.getElementById("none");
+
+    const omikujiResults = [
+      { type: "大吉", result: "願望：すぐに叶う\n恋愛：運命の出会いが訪れる\n学問：全てが順調\n仕事：昇進のチャンス" },
+      { type: "中吉", result: "願望：意外な形で実現\n恋愛：再会に期待\n学問：新しい視点で伸びる\n仕事：新しいチャンスあり" },
+      { type: "小吉", result: "願望：仲間の力を借りよ\n恋愛：友情が恋に\n学問：質問を恐れずに\n仕事：丁寧な報告を" },
+      { type: "吉",   result: "願望：チャンスを逃すな\n恋愛：イベントに参加して\n学問：復習は大事\n仕事：新たな挑戦を" },
+      { type: "末吉", result: "願望：じっくり待てば叶う\n恋愛：焦りは禁物\n学問：継続は力なり\n仕事：計画見直しを" },
+      { type: "凶",   result: "願望：叶いにくい時\n恋愛：誤解が多い\n学問：焦らず復習せよ\n仕事：無理は禁物" },
+      { type: "大凶", result: "願望：困難続くが耐えよ\n恋愛：注意深く行動\n学問：無理は禁物\n仕事：慎重に進め" }
+    ];
+
+    function createPetal() {
+      const petal = document.createElement("div");
+      petal.classList.add("petal");
+      petal.style.left = Math.random() * 100 + "vw";
+      petal.style.animationDuration = 5 + Math.random() * 5 + "s";
+      sakuraContainer.appendChild(petal);
+      setTimeout(() => sakuraContainer.removeChild(petal), 10000);
+    }
+
+    function startSakura() {
+      setInterval(createPetal, 300);
+    }
+
+    function playVoice(resultType) {
+      if (["大吉", "中吉"].includes(resultType)) yay.play();
+      else if (["小吉", "吉"].includes(resultType)) yahoo.play();
+      else if (["末吉", "凶"].includes(resultType)) ou.play();
+      else none.play(); // 大凶
+    }
+
+    function startCountdownAndResult() {
+      let count = 3;
+      const countSequence = () => {
+        if (count > 0) {
+          countdown.textContent = count;
+          puff.currentTime = 0;
+          puff.play();
+          count--;
+          setTimeout(countSequence, 1000);
+        } else {
+          countdown.textContent = "";
+          const random = omikujiResults[Math.floor(Math.random() * omikujiResults.length)];
+          resultBox.innerHTML = `<div class="${random.type} label">${random.type}</div><div>${random.result}</div>`;
+          resultBox.classList.add("open");
+          playVoice(random.type);
+          startSakura();
+        }
+      };
+      countSequence();
+    }
+
+    drawButton.addEventListener("click", () => {
+      soundEffect.currentTime = 0;
+      soundEffect.play();
+      drawButton.remove();
+      startCountdownAndResult();
+    });
+
+    // ハンバーガーメニュー開閉
+    const menuToggle = document.getElementById("menuToggle");
+    const menu = document.getElementById("menu");
+
+    menuToggle.addEventListener("click", () => {
+      menu.style.display = menu.style.display === "block" ? "none" : "block";
+    });
+
+    // 外をクリックしたらメニューを閉じる
+    document.addEventListener("click", (e) => {
+      if (!menu.contains(e.target) && !menuToggle.contains(e.target)) {
+        menu.style.display = "none";
+      }
+    });
+  </script>
+</body>
+</html>
